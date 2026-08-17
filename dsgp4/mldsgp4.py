@@ -47,6 +47,9 @@ class mldsgp4(nn.Module):
         is normalized, to unnormalize and obtain km and km/s, you can use self.normalization_R constant for the position
         and self.normalization_V constant for the velocity.
 
+        The input TLE object(s) are copied before applying learned corrections, so calling
+        the model does not change the caller's orbital elements or initialized SGP4 state.
+
         Parameters:
         ----------------
         tles (``dsgp4.tle.TLE`` or ``list``): a TLE object or a list of TLE objects.
@@ -58,11 +61,15 @@ class mldsgp4(nn.Module):
         """
         is_batch=hasattr(tles, '__len__')
         if is_batch:
+            # Work on copies because the input network writes corrected mean elements
+            # into the objects that are subsequently propagated.
+            tles=[tle.copy() for tle in tles]
             #this is the batch case, so we proceed and initialize the batch:
             _,tles=initialize_tle(tles,with_grad=True)
             x0 = torch.stack((tles._ecco, tles._argpo, tles._inclo, tles._mo, tles._no_kozai, tles._nodeo), dim=1)
         else:
-            #this handles the case in which a singlee TLE is passed
+            #this handles the case in which a single TLE is passed
+            tles=tles.copy()
             initialize_tle(tles,with_grad=True)
             x0 = torch.stack((tles._ecco, tles._argpo, tles._inclo, tles._mo, tles._no_kozai, tles._nodeo), dim=0).reshape(-1,6)
         x=self.leaky_relu(self.fc1(x0))
