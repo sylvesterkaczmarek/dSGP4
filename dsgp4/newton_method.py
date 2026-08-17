@@ -4,6 +4,46 @@ from .sgp4 import sgp4
 from .sgp4init import sgp4init
 from . import util
 
+_TLE_ECCENTRICITY_RESOLUTION = 1e-7
+
+
+def _circular_phase_angles(r_vec, v_vec):
+    """Return a nonsingular (RAAN, argp, M) convention for a circular state.
+
+    For circular inclined orbits the physically meaningful angle is argument of
+    latitude, so argument of perigee is set to zero and the argument of latitude
+    is carried by mean anomaly. For circular equatorial orbits the true longitude
+    is used with RAAN and argument of perigee both set to zero.
+    """
+    r_vec = np.asarray(r_vec, dtype=float)
+    v_vec = np.asarray(v_vec, dtype=float)
+    r = np.linalg.norm(r_vec)
+    h_vec = np.cross(r_vec, v_vec)
+    h = np.linalg.norm(h_vec)
+    if r == 0.0 or h == 0.0:
+        raise ValueError("Circular phase is undefined for a degenerate Cartesian state.")
+
+    k_hat = np.array([0.0, 0.0, 1.0])
+    n_vec = np.cross(k_hat, h_vec)
+    n = np.linalg.norm(n_vec)
+    eps = np.finfo(float).eps * max(r, h, 1.0)
+
+    if n > eps:
+        raan = np.arctan2(n_vec[1], n_vec[0]) % (2.0 * np.pi)
+        cos_u = np.clip(np.dot(n_vec, r_vec) / (n * r), -1.0, 1.0)
+        sin_u = np.dot(np.cross(n_vec, r_vec), h_vec) / (n * r * h)
+        mean_anomaly = np.arctan2(sin_u, cos_u) % (2.0 * np.pi)
+    else:
+        # Circular equatorial orbit: true longitude is the nonsingular phase.
+        longitude = np.arctan2(r_vec[1], r_vec[0])
+        if h_vec[2] < 0.0:
+            longitude = -longitude
+        raan = 0.0
+        mean_anomaly = longitude % (2.0 * np.pi)
+
+    return raan, 0.0, mean_anomaly
+
+
 def update_TLE(old_tle, y0):
     """
     This function updates the TLE object with the new keplerian elements.
@@ -68,6 +108,19 @@ def initial_guess_tle(time_mjd, tle_object, gravity_constant_name="wgs-84"):
     _,mu_earth,_,_,_,_,_,_=util.get_gravity_constants(gravity_constant_name)
     mu_earth=float(mu_earth)*1e9
     kepl_el=util.from_cartesian_to_keplerian(target_state[0],target_state[1],mu_earth)
+
+    # The TLE eccentricity field has seven implied-decimal digits. If the
+    # osculating eccentricity would serialize as exactly zero, argument of
+    # perigee is singular. Preserve orbital phase using argument of latitude
+    # (or true longitude for an equatorial circular orbit) instead.
+    if kepl_el[1] < 0.5 * _TLE_ECCENTRICITY_RESOLUTION:
+        raan, argp, mean_anomaly = _circular_phase_angles(
+            target_state[0], target_state[1]
+        )
+        kepl_el[3] = raan
+        kepl_el[4] = argp
+        kepl_el[5] = mean_anomaly
+
     #we need to convert the keplerian elements to TLE elements:
     data = dict(
                 satellite_catalog_number=tle_object.satellite_catalog_number,
