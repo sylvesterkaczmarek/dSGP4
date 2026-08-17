@@ -10,6 +10,7 @@ from .sgp4init_batch import sgp4init_batch
 from .newton_method import newton_method, update_TLE
 from .sgp4_batched import sgp4_batched
 from .util import propagate, initialize_tle, propagate_batch
+from .rtn import rtn_rotation_matrix, cartesian_covariance_to_rtn
 from .plot import plot_orbit, plot_tles
 from . import tle
 from .tle import TLE
