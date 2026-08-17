@@ -4,6 +4,20 @@ from .sgp4 import sgp4
 from .sgp4init import sgp4init
 from . import util
 
+# Smallest positive mean motion that survives the 8-decimal rev/day TLE field.
+_MIN_TLE_MEAN_MOTION = 2.0 * np.pi * 1e-8 / 1440.0
+
+
+def _bound_mean_motion_step(current_mean_motion, mean_motion_step):
+    """Return a Newton step that keeps SGP4 mean motion strictly positive."""
+    current_mean_motion = float(current_mean_motion)
+    mean_motion_step = float(mean_motion_step)
+    candidate = current_mean_motion + mean_motion_step
+    if candidate < _MIN_TLE_MEAN_MOTION:
+        return _MIN_TLE_MEAN_MOTION - current_mean_motion
+    return mean_motion_step
+
+
 def update_TLE(old_tle, y0):
     """
     This function updates the TLE object with the new keplerian elements.
@@ -168,6 +182,10 @@ def newton_method(tle0, time_mjd, max_iter=50, new_tol=1e-12, verbose=False, tar
             dY[0]=1e-10
         if y0[0]+dY[0]>1.:
             dY[0]=1-1e-10
+        # SGP4 requires strictly positive mean motion. Preserve the Newton step
+        # whenever it stays in-domain; otherwise project to the smallest value
+        # representable by the TLE mean-motion field.
+        dY[4]=_bound_mean_motion_step(y0[4], dY[4])
         dY=torch.tensor(dY, requires_grad=True)
         #update the state:
         y0 = torch.tensor([float(a) + float(b) for a, b in zip(y0, dY)], requires_grad=True)
