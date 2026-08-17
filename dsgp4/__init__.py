@@ -10,6 +10,7 @@ from .sgp4init_batch import sgp4init_batch
 from .newton_method import newton_method, update_TLE
 from .sgp4_batched import sgp4_batched
 from .util import propagate, initialize_tle, propagate_batch
+from .uncertainty import TLE_ELEMENT_ORDER, state_jacobian, propagate_covariance
 from .plot import plot_orbit, plot_tles
 from . import tle
 from .tle import TLE
