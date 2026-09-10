@@ -570,11 +570,16 @@ class OMM(TLE):
         """
         This function returns the TLE representation of the OMM object. Note that the TLE
         format cannot represent all the objects an OMM can: a `ValueError` is raised when the
-        satellite catalog number does not fit the two lines.
+        satellite catalog number or epoch year cannot be represented.
 
         Returns:
             `dsgp4.tle.TLE` object
         """
+        year = self._data['epoch_year']
+        if not 1957 <= year <= 2056:
+            raise ValueError('Epoch year {} cannot be represented in the TLE format: '
+                             'the two-digit year covers 1957 through 2056. Use the OMM '
+                             'format instead.'.format(year))
         return TLE(copy_data(self._data))
 
     def __getattr__(self, attr):
