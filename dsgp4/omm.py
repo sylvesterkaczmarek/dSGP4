@@ -285,7 +285,10 @@ def dumps(omms, file_format='json'):
     elif file_format == 'kvn':
         lines = []
         for record in records:
-            lines.extend('{} = {}'.format(key, value) for key, value in record.items())
+            #The version also marks the start of each message in a multi-message file.
+            lines.append('CCSDS_OMM_VERS = {}'.format(_field(record, 'CCSDS_OMM_VERS', CCSDS_OMM_VERS)))
+            lines.extend('{} = {}'.format(key, value) for key, value in record.items()
+                         if key != 'CCSDS_OMM_VERS')
             lines.append('')
         return '\n'.join(lines)
     elif file_format == 'csv':
