@@ -14,7 +14,8 @@ def _bound_mean_motion_step(current_mean_motion, mean_motion_step):
     mean_motion_step = float(mean_motion_step)
     candidate = current_mean_motion + mean_motion_step
     if candidate < _MIN_TLE_MEAN_MOTION:
-        return _MIN_TLE_MEAN_MOTION - current_mean_motion
+        # Round the step upward so recomputing the sum stays above the floor.
+        return float(np.nextafter(_MIN_TLE_MEAN_MOTION - current_mean_motion, np.inf))
     return mean_motion_step
 
 
